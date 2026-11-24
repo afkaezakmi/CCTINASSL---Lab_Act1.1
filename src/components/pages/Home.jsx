@@ -40,10 +40,14 @@ function Home() {
     const outItems = inventory.filter((i) => i.qty === 0);
 
     const categoryTotals = categories
-      .map((cat) => ({
-        cat,
-        val: inventory.filter((i) => i.category === cat).reduce((s, i) => s + i.price * i.qty, 0)
-      }))
+      .map((cat) => {
+        const itemsInCat = inventory.filter((i) => i.category === cat);
+        return {
+          cat,
+          units: itemsInCat.reduce((s, i) => s + i.qty, 0),
+          val: itemsInCat.reduce((s, i) => s + i.price * i.qty, 0)
+        };
+      })
       .sort((a, b) => b.val - a.val);
 
     return {
@@ -63,7 +67,7 @@ function Home() {
       prev.map((item) => {
         if (item.id !== id) return item;
         const newQty = Math.max(0, item.qty + delta);
-        showToast(`Updated ${item.sku} stock to ${newQty}`);
+        showToast(`Restocked ${item.sku} (+${delta} units)`);
         return { ...item, qty: newQty };
       })
     );
@@ -83,7 +87,7 @@ function Home() {
       location: formData.location.trim()
     };
     setInventory((prev) => [payload, ...prev]);
-    showToast('Hardware component added');
+    showToast(`Added ${payload.sku} to stockroom`);
     setFormData(EMPTY_FORM);
     setModalOpen(false);
   };
@@ -95,6 +99,10 @@ function Home() {
 
   return (
     <div className="app-layout">
+      {sidebarOpen && (
+        <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} aria-hidden="true" />
+      )}
+
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <div className="logo">
@@ -113,95 +121,156 @@ function Home() {
               <span className="brand-sub">PC Parts Inventory</span>
             </div>
           </div>
-          <button className="icon-btn mobile-only" onClick={() => setSidebarOpen(false)}>✕</button>
+          <button type="button" className="icon-btn mobile-only" onClick={() => setSidebarOpen(false)} aria-label="Close navigation">
+            ✕
+          </button>
         </div>
 
-        <nav className="sidebar-nav">
-          <NavLink to="/" end className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+        <nav className="sidebar-nav" aria-label="Primary">
+          <NavLink to="/" end onClick={() => setSidebarOpen(false)} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
               <rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
             </svg>
-            Dashboard
+            <span>Dashboard</span>
           </NavLink>
-          <NavLink to="/inventory" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+
+          <NavLink to="/inventory" onClick={() => setSidebarOpen(false)} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M20 7h-9" /><path d="M14 17H5" /><circle cx="17" cy="17" r="3" /><circle cx="7" cy="7" r="3" />
             </svg>
-            PC Parts Catalog
-            <span className="nav-badge">{metrics.alertCount}</span>
+            <span>PC Parts Catalog</span>
+            {metrics.alertCount > 0 && <span className="nav-badge">{metrics.alertCount}</span>}
           </NavLink>
-          <NavLink to="/stock-movements" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+
+          <NavLink to="/stock-movements" onClick={() => setSidebarOpen(false)} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
             </svg>
-            Stock Movements
+            <span>Stock Movements</span>
           </NavLink>
-          <NavLink to="/suppliers" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+
+          <NavLink to="/suppliers" onClick={() => setSidebarOpen(false)} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
               <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
             </svg>
-            Distributors
+            <span>Distributors</span>
           </NavLink>
         </nav>
 
         <div className="sidebar-footer">
-          <button className="btn btn-ghost btn-sm full-width" onClick={resetDemoData}>Reset Demo Data</button>
+          <button type="button" className="btn btn-ghost btn-sm full-width" onClick={resetDemoData}>
+            Reset Demo Data
+          </button>
         </div>
       </aside>
 
       <main className="main-content">
         <header className="topbar">
           <div className="topbar-left">
-            <button className="icon-btn mobile-only" onClick={() => setSidebarOpen(true)}>☰</button>
+            <button type="button" className="icon-btn mobile-only" onClick={() => setSidebarOpen(true)} aria-label="Open navigation">
+              ☰
+            </button>
             <div>
               <h1 className="page-title">Hardware Dashboard</h1>
               <p className="page-subtitle">Overview of PC components, stock valuation, and RMA/restock alerts</p>
             </div>
           </div>
           <div className="topbar-actions">
-            <button className="btn btn-primary" onClick={() => setModalOpen(true)}>+ Add Component</button>
+            <span className="stock-pill">
+              <span className="status-dot" />
+              <strong>{metrics.totalUnits}</strong> units • <strong>{metrics.categories.length}</strong> categories
+            </span>
+            <button type="button" className="btn btn-primary" onClick={() => setModalOpen(true)}>
+              + Add Component
+            </button>
           </div>
         </header>
 
         <section className="view-section active">
+          {/* KPI Cards */}
           <div className="kpi-grid">
-            <div className="kpi-card">
-              <span className="kpi-label">Total Hardware Value</span>
-              <strong className="kpi-value">${metrics.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+            <div className="kpi-card primary">
+              <div className="kpi-top">
+                <span className="kpi-label">Total Hardware Value</span>
+                <span className="kpi-icon blue">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                  </svg>
+                </span>
+              </div>
+              <strong className="kpi-value">
+                ${metrics.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </strong>
               <span className="kpi-meta">{metrics.totalUnits.toLocaleString()} components in stockroom</span>
             </div>
-            <div className="kpi-card">
-              <span className="kpi-label">Active Part SKUs</span>
+
+            <div className="kpi-card info">
+              <div className="kpi-top">
+                <span className="kpi-label">Active Part SKUs</span>
+                <span className="kpi-icon slate">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                  </svg>
+                </span>
+              </div>
               <strong className="kpi-value">{inventory.length}</strong>
               <span className="kpi-meta">Across {metrics.categories.length} hardware categories</span>
             </div>
+
             <div className="kpi-card warning">
-              <span className="kpi-label">Low Stock Parts</span>
+              <div className="kpi-top">
+                <span className="kpi-label">Low Stock Parts</span>
+                <span className="kpi-icon amber">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                    <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                  </svg>
+                </span>
+              </div>
               <strong className="kpi-value">{metrics.lowItems.length}</strong>
-              <span className="kpi-meta">Components below reorder level</span>
+              <span className="kpi-meta">Components at or below reorder level</span>
             </div>
+
             <div className="kpi-card danger">
-              <span className="kpi-label">Out of Stock</span>
+              <div className="kpi-top">
+                <span className="kpi-label">Out of Stock</span>
+                <span className="kpi-icon red">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
+                  </svg>
+                </span>
+              </div>
               <strong className="kpi-value">{metrics.outItems.length}</strong>
               <span className="kpi-meta">Backordered / urgent restock</span>
             </div>
           </div>
 
+          {/* Analytics & Restock Priority Grid */}
           <div className="dashboard-grid">
             <div className="card">
               <div className="card-header">
-                <h2>Valuation by Component Category</h2>
+                <div>
+                  <h2>Valuation by Component Category</h2>
+                  <p className="card-sub">Share of total stockroom inventory value</p>
+                </div>
+                <span className="pill-tag">{metrics.categories.length} groups</span>
               </div>
+
               <div className="category-bars">
-                {metrics.categoryTotals.map(({ cat, val }) => {
+                {metrics.categoryTotals.map(({ cat, units, val }) => {
                   const pct = metrics.totalValue > 0 ? Math.round((val / metrics.totalValue) * 100) : 0;
                   return (
                     <div className="cat-bar-item" key={cat}>
                       <div className="cat-bar-top">
-                        <span>{cat}</span>
-                        <span>${val.toLocaleString('en-US', { minimumFractionDigits: 2 })} ({pct}%)</span>
+                        <div>
+                          <span className="cat-name">{cat}</span>
+                          <span className="cat-units">{units} units</span>
+                        </div>
+                        <span className="cat-amount">
+                          ${val.toLocaleString('en-US', { minimumFractionDigits: 2 })} <em>({pct}%)</em>
+                        </span>
                       </div>
                       <div className="progress-track">
                         <div className="progress-fill" style={{ width: `${pct}%` }} />
@@ -214,24 +283,35 @@ function Home() {
 
             <div className="card">
               <div className="card-header">
-                <h2>Restock Priority</h2>
-                <Link to="/inventory" className="link-btn">View All</Link>
+                <div>
+                  <h2>Restock Priority</h2>
+                  <p className="card-sub">Parts at or below reorder threshold</p>
+                </div>
+                <Link to="/inventory" className="link-btn">Open Catalog →</Link>
               </div>
+
               <div className="priority-list">
                 {metrics.priorityItems.length === 0 ? (
-                  <p className="muted-text">All hardware components are adequately stocked.</p>
+                  <div className="empty-state">
+                    <p>All hardware components are adequately stocked.</p>
+                  </div>
                 ) : (
                   metrics.priorityItems.map((item) => {
                     const st = getStockStatus(item);
                     return (
                       <div className="priority-item" key={item.id}>
-                        <div>
+                        <div className="priority-info">
                           <strong>{item.name}</strong>
-                          <div className="muted-text">{item.sku} • Min stock: {item.minQty}</div>
+                          <div className="muted-text">
+                            <span className="sku-code">{item.sku}</span> • Min: {item.minQty}
+                            {item.location ? ` • ${item.location}` : ''}
+                          </div>
                         </div>
                         <div className="priority-actions">
                           <span className={`badge ${st.badge}`}>{item.qty} left</span>
-                          <button className="btn btn-sm btn-secondary" onClick={() => adjustStock(item.id, 5)}>+5</button>
+                          <button type="button" className="btn btn-sm btn-secondary" onClick={() => adjustStock(item.id, 5)}>
+                            +5
+                          </button>
                         </div>
                       </div>
                     );
@@ -243,12 +323,15 @@ function Home() {
         </section>
       </main>
 
+      {/* Add Component Modal */}
       {modalOpen && (
-        <div className="modal-backdrop open">
-          <div className="modal">
+        <div className="modal-backdrop open" onClick={() => setModalOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Add Hardware Component</h2>
-              <button className="icon-btn" onClick={() => setModalOpen(false)}>✕</button>
+              <button type="button" className="icon-btn" onClick={() => setModalOpen(false)} aria-label="Close modal">
+                ✕
+              </button>
             </div>
             <form onSubmit={handleAddSubmit} className="modal-body">
               <div className="form-grid">
@@ -304,7 +387,9 @@ function Home() {
         </div>
       )}
 
-      <div className={`toast ${toastMsg ? 'show' : ''}`}>{toastMsg}</div>
+      <div className={`toast ${toastMsg ? 'show' : ''}`} role="status" aria-live="polite">
+        {toastMsg}
+      </div>
     </div>
   );
 }
