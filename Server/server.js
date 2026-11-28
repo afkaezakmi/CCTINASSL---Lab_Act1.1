@@ -1,8 +1,13 @@
 const express = require('express');
+const connectDB = require('./components/config/db.Connect')
+const userRoutes = require('./components/controller/userController')
 const app = express();
+
+connectDB();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/users', userRoutes);
 
 app.get('/', (request, response) => {
   response.send('Hello Jhon Kelly Pielago!');
