@@ -133,7 +133,8 @@ router.post('/login', async(request, response) => {
         }
 
         response.status(200).json({
-            message: "Login successful",
+            message: "Login Successfull",
+            welcome: "Welcome back, " + user.name,
             success: true,
             user: {
                 id: user._id,
