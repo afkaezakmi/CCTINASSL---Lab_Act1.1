@@ -93,5 +93,61 @@ router.put('/update/:id', async(request, response) =>{
             error: error.message
         })
     }
-})  
+})
+
+
+router.delete('/delete/:id', async(request, response) =>{
+    try{
+        await User.findByIdAndDelete(request.params.id);
+        response.status(200).json({
+            message: "User deleted successfully",
+            success: true
+        });
+    } catch(error){
+        response.status(500).json({
+            message: "An Error has occured",
+            error: error.message
+        })
+    }
+})
+
+
+router.post('/login', async(request, response) => {
+    try {
+        const { email, password } = request.body;
+
+        const user = await User.findOne({ email });
+
+        if(!user) {
+            return response.status(404).json({
+                message: "User not found",
+                success: false
+            });
+        }
+
+        if(user.password !== password) {
+            return response.status(401).json({
+                message: "Incorrect password",
+                success: false
+            });
+        }
+
+        response.status(200).json({
+            message: "Login successful",
+            success: true,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email
+            }
+        });
+
+    } catch(error) {
+        response.status(500).json({
+            message: "An error has occurred",
+            error: error.message
+        });
+    }
+});
+
 module.exports = router;
